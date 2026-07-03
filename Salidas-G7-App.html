@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Generador Salidas G7</title>
+
+<!-- PWA: manifest e íconos -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- PWA: que se vea como app nativa en iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Salidas G7">
+<meta name="theme-color" content="#1E2A22">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+  :root{
+    --paper:#F2F4F1;
+    --panel:#FFFFFF;
+    --ink:#1E2A22;
+    --ink-soft:#5B6B60;
+    --line:#D8DED6;
+    --accent:#1F8A5F;
+    --accent-soft:#E4F3EB;
+    --warn:#B5502E;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 6px;
+  }
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em;}
+  .sub{color:var(--ink-soft);font-size:14px;margin:0;line-height:1.5;max-width:640px;}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:11.5px;color:var(--accent);
+    background:var(--accent-soft);border:1px solid #bfe3d1;
+    padding:4px 9px;border-radius:20px;margin-top:12px;
+  }
+  .badge svg{width:12px;height:12px;}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+    margin-bottom:20px;
+  }
+  .card h2{
+    font-size:13px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--ink-soft);margin:0 0 14px;font-family:var(--mono);
+    display:flex;align-items:center;gap:8px;
+  }
+  .step-num{
+    width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:11px;font-family:var(--sans);font-weight:600;
+  }
+
+  textarea{
+    width:100%;min-height:190px;resize:vertical;
+    border:1px solid var(--line);border-radius:10px;
+    padding:14px;font-family:var(--mono);font-size:13.5px;line-height:1.55;
+    color:var(--ink);background:#FBFCFB;
+  }
+  textarea:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  button{
+    font-family:var(--sans);font-size:13.5px;font-weight:600;
+    border-radius:9px;border:1px solid transparent;
+    padding:10px 16px;cursor:pointer;transition:opacity .15s;
+  }
+  button:hover{opacity:.85;}
+  button:active{transform:translateY(1px);}
+  .btn-primary{background:var(--ink);color:#fff;}
+  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+  .btn-ghost:hover{color:var(--ink);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;}
+  thead th{
+    text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--ink-soft);padding:8px 6px;border-bottom:1px solid var(--line);
+  }
+  tbody td{padding:5px 6px;border-bottom:1px solid #EEF1EE;vertical-align:middle;}
+  tbody tr:hover{background:#FAFBFA;}
+  tbody tr.manual-row{background:#FFF8EC;}
+  tbody tr.manual-row:hover{background:#FFF3DE;}
+  tbody tr.manual-row td:first-child{box-shadow:inset 3px 0 0 #E0A63E;}
+  td input{
+    width:100%;border:1px solid transparent;background:transparent;
+    font-family:var(--sans);font-size:13px;color:var(--ink);
+    padding:6px 7px;border-radius:6px;
+  }
+  td input:focus{border-color:var(--accent);background:#fff;outline:none;}
+  td.col-dia input{font-weight:600;}
+  td.col-del{width:34px;text-align:center;}
+  .del-btn{
+    background:none;border:none;color:#B5502E;font-size:16px;padding:2px 6px;
+    cursor:pointer;line-height:1;
+  }
+  .del-btn:hover{opacity:.6;}
+  td.col-move{width:52px;text-align:center;white-space:nowrap;}
+  .move-btn{
+    background:none;border:none;color:var(--ink-soft);font-size:12px;padding:2px 4px;
+    cursor:pointer;line-height:1;
+  }
+  .move-btn:hover:not(:disabled){color:var(--accent);}
+  .move-btn:disabled{opacity:.2;cursor:default;}
+
+  .empty-state{
+    text-align:center;color:var(--ink-soft);font-size:13.5px;padding:36px 0;
+  }
+
+  .subtitle-field{
+    display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;
+  }
+  .subtitle-field label{font-size:12.5px;color:var(--ink-soft);font-family:var(--mono);}
+  .subtitle-field input[type=text]{
+    flex:1;min-width:220px;border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;font-family:var(--sans);font-size:13.5px;
+  }
+
+  footer{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:36px;line-height:1.6;}
+  footer a{color:var(--accent);}
+
+  #toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;
+    opacity:0;transition:all .25s;pointer-events:none;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Grupo 7 · Herramienta local</p>
+    <h1>Generador de Salidas G7</h1>
+    <p class="sub">Pegá el mensaje de WhatsApp de la semana, revisá los datos y descargá el Excel con el mismo formato de siempre. Todo se procesa en tu navegador.</p>
+    <span class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5l-8-3Z"/></svg>
+      Nada se envía a ningún servidor
+    </span>
+  </header>
+
+  <div class="card">
+    <h2><span class="step-num">1</span> Pegá el mensaje</h2>
+    <textarea id="rawInput" placeholder="Pegá acá el texto tal cual lo mandan por WhatsApp..."></textarea>
+    <div class="row">
+      <button class="btn-primary" id="processBtn">Procesar mensaje</button>
+      <button class="btn-ghost" id="clearBtn">Limpiar</button>
+    </div>
+    <p class="hint">El lector reconoce días (Lunes a Domingo), horarios, "Cond:" y "T:". Si un día dice "cada uno con su grupo" no genera fila. Revisá siempre la tabla antes de descargar — el reconocimiento automático no es perfecto.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span> Revisá y corregí</h2>
+    <div class="subtitle-field">
+      <label for="subtitleInput">Encabezado del Excel:</label>
+      <input type="text" id="subtitleInput" placeholder="Del 26/6 al 2/7">
+    </div>
+    <div id="tableWrap">
+      <div class="empty-state">Todavía no procesaste ningún mensaje.</div>
+    </div>
+    <div class="row" id="addRowWrap" style="display:none;">
+      <button class="btn-ghost" id="addRowBtn">+ Agregar fila</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span> Descargá el Excel</h2>
+    <div class="row">
+      <button class="btn-accent" id="downloadBtn" disabled>Descargar Salidas_G7.xlsx</button>
+    </div>
+    <p class="hint">El archivo se genera con el mismo título, colores, fuente y anchos de columna que tu planilla actual.</p>
+  </div>
+
+  <footer>
+    Esta herramienta corre 100% en tu navegador. Los nombres, lugares y horarios que pegues nunca salen de tu computadora.<br>
+    (Solo se descarga una biblioteca de código pública para armar el Excel — ningún dato personal viaja a ningún lado.)
+  </footer>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const DAY_NAMES = ['Lunes','Martes','Miércoles','Miercoles','Jueves','Viernes','Sábado','Sabado','Domingo'];
+const DAY_REGEX = new RegExp('^(' + DAY_NAMES.join('|') + ')\\b\\.?\\s*(\\d{1,2})?', 'i');
+const NOISE_LINE = /^(salidas\s+de\s+congregaci[oó]n|¿?alguna\s+duda\??¿?|congregaci[oó]n)$/i;
+
+function stripLeadingSymbols(line){
+  return line.replace(/^[^\p{L}0-9]+/u, '').trim();
+}
+
+function normalizeDayName(name){
+  const map = {miercoles:'Miércoles', sabado:'Sábado'};
+  const key = name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const found = Object.keys(map).find(k => k === key);
+  if (found) return map[found];
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+
+function extractTime(text){
+  const m = text.match(/(\d{1,2})[:.](\d{2})\s*(?:hs?\.?)?/i);
+  if(!m) return {hora:'', rest:text};
+  const rest = text.slice(0, m.index) + text.slice(m.index + m[0].length);
+  const hh = m[1].padStart(2,'0');
+  const mm = m[2];
+  return {hora: `${hh}:${mm}`, rest};
+}
+
+function extractTerritorio(text){
+  const m = text.match(/\bT\.?\s*:?\s*(\d+)/i);
+  if(!m) return {territorio:'', rest: text.replace(/\bT\.?\s*:?\s*(?=$|\s)/i, '')};
+  const rest = text.slice(0, m.index) + text.slice(m.index + m[0].length);
+  return {territorio: m[1], rest};
+}
+
+function extractConductor(text){
+  const m = text.match(/Cond\.?\s*:?\s*(.+)$/i);
+  if(!m) return {conductor:'', rest:text};
+  let cond = m[1];
+  cond = cond.replace(/\s*T\.?\s*:?\s*$/i,'').replace(/\.$/,'').trim();
+  const rest = text.slice(0, m.index);
+  return {conductor: cond, rest};
+}
+
+function cleanLugar(text){
+  return text.replace(/\bT\.?\s*:?\s*$/i,'')
+             .replace(/^[\s.,\-]+|[\s.,\-]+$/g,'')
+             .replace(/\s{2,}/g,' ')
+             .trim();
+}
+
+const WEEKDAY_ORDER = {Lunes:0, Martes:1, Miércoles:2, Jueves:3, Viernes:4, Sábado:5, Domingo:6};
+
+function inferDayNum(targetName, lastDay){
+  if(!lastDay) return '';
+  const diff = WEEKDAY_ORDER[targetName] - WEEKDAY_ORDER[lastDay.name];
+  if(diff === undefined || isNaN(diff)) return '';
+  return String(lastDay.num + diff);
+}
+
+function parseMessage(raw){
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length && !NOISE_LINE.test(l.replace(/[^\p{L}\s?]/gu,'').trim()));
+  const rows = [];
+  let i = 0;
+  let lastDay = null; // { name, num } - último día con número conocido, para inferir los que falten
+  while(i < lines.length){
+    const clean = stripLeadingSymbols(lines[i]);
+    const headerMatch = clean.match(DAY_REGEX);
+    if(!headerMatch){ i++; continue; }
+
+    const dayName = normalizeDayName(headerMatch[1]);
+    let dayNum = headerMatch[2] || '';
+    let consumedLen = headerMatch[0].length;
+    if(dayNum && clean[consumedLen] === ':'){
+      // el "número" era en realidad el inicio de un horario como "18:30", no el día
+      consumedLen -= dayNum.length;
+      dayNum = '';
+    }
+    if(!dayNum && lastDay && lastDay.name === dayName){
+      // mismo día de la semana ya visto antes en el mensaje (ej: 2do bloque del miércoles)
+      dayNum = String(lastDay.num);
+    }
+    if(dayNum) lastDay = {name: dayName, num: parseInt(dayNum)};
+    const diaLabel = dayNum ? `${dayName} ${dayNum}` : dayName;
+    let leftoverHeader = clean.slice(consumedLen).trim();
+
+    // combined weekend header like "Sábado y Domingo"
+    const isWeekendCombo = /^y\s+(domingo|s[aá]bado)/i.test(leftoverHeader);
+    let secondaryDay = '';
+    let secondaryLabel = '';
+    if(isWeekendCombo){
+      const sm = leftoverHeader.match(/^y\s+(domingo|s[aá]bado)/i);
+      secondaryDay = normalizeDayName(sm[1]);
+      const secNum = inferDayNum(secondaryDay, lastDay);
+      secondaryLabel = secNum ? `${secondaryDay} ${secNum}` : secondaryDay;
+      if(secNum) lastDay = {name: secondaryDay, num: parseInt(secNum)};
+    }
+
+    // peek next line to see if it's a "cada uno con su grupo" skip marker
+    const next = lines[i+1] ? stripLeadingSymbols(lines[i+1]) : '';
+    const isSkip = /cada\s+uno/i.test(leftoverHeader) || /cada\s+uno/i.test(next);
+
+    if(isSkip){
+      i += next && /cada\s+uno/i.test(next) ? 2 : 1;
+      // si el header no traía número propio (ej: solo "Sábado" antes de la combinación), lo inferimos
+      const primaryLabel = dayNum ? diaLabel : (inferDayNum(dayName, lastDay) ? `${dayName} ${inferDayNum(dayName, lastDay)}` : diaLabel);
+      rows.push({dia: primaryLabel, hora:'', lugar:'', territorio:'', conductor:'', manual:true});
+      if(isWeekendCombo){
+        rows.push({dia: secondaryLabel, hora:'', lugar:'', territorio:'', conductor:'', manual:true});
+      }
+      continue;
+    }
+
+    // gather up to 2 body "slots": header leftover (if any) + up to 2 following lines
+    let bodyParts = [];
+    if(leftoverHeader && !isWeekendCombo) bodyParts.push(leftoverHeader);
+    let j = i + 1;
+    let slotsLeft = 2 - bodyParts.length;
+    while(j < lines.length && slotsLeft > 0){
+      const l = lines[j];
+      const strippedCheck = stripLeadingSymbols(l);
+      if(DAY_REGEX.test(strippedCheck)) break;
+      if(NOISE_LINE.test(l.replace(/[^\p{L}\s?]/gu,'').trim())){ j++; continue; }
+      bodyParts.push(l);
+      slotsLeft--;
+      j++;
+    }
+    i = j;
+
+    if(bodyParts.length === 0) continue;
+    let text = bodyParts.join(' ');
+
+    const t = extractTime(text);
+    const terr = extractTerritorio(t.rest);
+    const cond = extractConductor(terr.rest);
+    const lugar = cleanLugar(cond.rest);
+
+    rows.push({
+      dia: diaLabel,
+      hora: t.hora,
+      lugar: lugar,
+      territorio: terr.territorio,
+      conductor: cond.conductor,
+      manual: false
+    });
+  }
+
+  // Los miércoles suelen tener un encuentro adicional que no llega por WhatsApp:
+  // se deja una fila vacía extra para completar a mano, entre el encuentro de la
+  // mañana y el de Zoom (que suele venir después en el mensaje).
+  let firstMiercolesIdx = -1;
+  rows.forEach((r, idx) => { if(firstMiercolesIdx === -1 && /^Mi[ée]rcoles/i.test(r.dia)) firstMiercolesIdx = idx; });
+  if(firstMiercolesIdx !== -1){
+    const label = rows[firstMiercolesIdx].dia;
+    rows.splice(firstMiercolesIdx + 1, 0, {dia: label, hora:'', lugar:'', territorio:'', conductor:'', manual:true});
+  }
+
+  return rows;
+}
+
+function guessSubtitle(rows){
+  const dated = rows
+    .map(r => {
+      const m = r.dia.match(/^(\D+?)\s*(\d{1,2})$/);
+      return m ? {name: m[1].trim(), num: parseInt(m[2])} : null;
+    })
+    .filter(Boolean);
+  if(!dated.length) return '';
+  const first = dated[0];
+  const last = dated[dated.length - 1];
+  const today = new Date();
+  let m1 = today.getMonth() + 1;
+  let m2 = m1;
+  if(last.num < first.num) m2 = m1 === 12 ? 1 : m1 + 1;
+  return `Del ${first.num}/${m1} al ${last.num}/${m2}`;
+}
+
+let currentRows = [];
+
+function renderTable(){
+  const wrap = document.getElementById('tableWrap');
+  const addWrap = document.getElementById('addRowWrap');
+  if(!currentRows.length){
+    wrap.innerHTML = '<div class="empty-state">Todavía no procesaste ningún mensaje.</div>';
+    addWrap.style.display = 'none';
+    document.getElementById('downloadBtn').disabled = true;
+    return;
+  }
+  addWrap.style.display = 'flex';
+  document.getElementById('downloadBtn').disabled = false;
+
+  let html = '<table><thead><tr>' +
+    '<th style="width:14%">Día</th><th style="width:9%">Hora</th><th style="width:32%">Lugar de encuentro</th>' +
+    '<th style="width:11%">Territorio</th><th style="width:22%">Conductor</th><th style="width:8%"></th><th></th></tr></thead><tbody>';
+  currentRows.forEach((r, idx) => {
+    html += `<tr class="${r.manual ? 'manual-row' : ''}">
+      <td class="col-dia"><input data-idx="${idx}" data-field="dia" value="${escapeAttr(r.dia)}"></td>
+      <td><input data-idx="${idx}" data-field="hora" value="${escapeAttr(r.hora)}" placeholder="hh:mm"></td>
+      <td><input data-idx="${idx}" data-field="lugar" value="${escapeAttr(r.lugar)}" placeholder="${r.manual ? 'completar a mano' : ''}"></td>
+      <td><input data-idx="${idx}" data-field="territorio" value="${escapeAttr(r.territorio)}"></td>
+      <td><input data-idx="${idx}" data-field="conductor" value="${escapeAttr(r.conductor)}"></td>
+      <td class="col-move">
+        <button class="move-btn" data-idx="${idx}" data-dir="up" title="Subir fila" ${idx===0 ? 'disabled' : ''}>▲</button>
+        <button class="move-btn" data-idx="${idx}" data-dir="down" title="Bajar fila" ${idx===currentRows.length-1 ? 'disabled' : ''}>▼</button>
+      </td>
+      <td class="col-del"><button class="del-btn" data-idx="${idx}" title="Eliminar fila">✕</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = +e.target.dataset.idx;
+      const field = e.target.dataset.field;
+      currentRows[idx][field] = e.target.value;
+    });
+  });
+  wrap.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = +e.target.dataset.idx;
+      currentRows.splice(idx,1);
+      renderTable();
+    });
+  });
+  wrap.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = +e.currentTarget.dataset.idx;
+      const dir = e.currentTarget.dataset.dir;
+      const target = dir === 'up' ? idx - 1 : idx + 1;
+      if(target < 0 || target >= currentRows.length) return;
+      [currentRows[idx], currentRows[target]] = [currentRows[target], currentRows[idx]];
+      renderTable();
+    });
+  });
+}
+
+function escapeAttr(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+document.getElementById('processBtn').addEventListener('click', () => {
+  const raw = document.getElementById('rawInput').value;
+  if(!raw.trim()){ showToast('Pegá primero el mensaje de WhatsApp'); return; }
+  currentRows = parseMessage(raw);
+  if(!currentRows.length){
+    showToast('No se detectaron salidas. Podés cargarlas a mano abajo.');
+    currentRows = [];
+  }
+  document.getElementById('subtitleInput').value = guessSubtitle(currentRows);
+  renderTable();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('rawInput').value = '';
+  currentRows = [];
+  renderTable();
+});
+
+document.getElementById('addRowBtn').addEventListener('click', () => {
+  currentRows.push({dia:'', hora:'', lugar:'', territorio:'', conductor:'', manual:true});
+  renderTable();
+});
+
+async function buildWorkbook(){
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Hoja1');
+
+  ws.columns = [
+    {width:20.39}, {width:12.76}, {width:50.96}, {width:10.5}, {width:29.84}
+  ];
+
+  const thinBorder = {
+    top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'}
+  };
+  const centerAlign = {horizontal:'center', vertical:'middle'};
+
+  ws.mergeCells('A2:E2');
+  const titleCell = ws.getCell('A2');
+  titleCell.value = 'Salidas de Congregación y del Grupo 7';
+  titleCell.font = {name:'Bahnschrift', bold:true, size:28};
+  titleCell.alignment = centerAlign;
+  ws.getRow(2).height = 39.3;
+
+  ws.mergeCells('A3:E3');
+  const subtitleCell = ws.getCell('A3');
+  subtitleCell.value = document.getElementById('subtitleInput').value || '';
+  subtitleCell.font = {name:'Bahnschrift Light SemiCondensed', bold:true, size:24};
+  subtitleCell.alignment = centerAlign;
+  ws.getRow(3).height = 38.45;
+
+  const headers = ['Día','Hora','Lugar de encuentro','Territorio','Conductor'];
+  headers.forEach((h, i) => {
+    const cell = ws.getCell(4, i+1);
+    cell.value = h;
+    cell.font = {name:'Bahnschrift SemiLight', bold:true, size:16};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF00FE7F'}};
+    cell.border = thinBorder;
+    cell.alignment = centerAlign;
+  });
+  ws.getRow(4).height = 44.75;
+
+  const fontAuto = 'Bahnschrift Light SemiCondensed';
+  const fontManual = 'Bahnschrift SemiBold';
+
+  currentRows.forEach((r, idx) => {
+    const fontName = r.manual ? fontManual : fontAuto;
+    const rowNum = 5 + idx;
+
+    const diaCell = ws.getCell(rowNum, 1);
+    diaCell.value = r.dia;
+    diaCell.font = {name:fontName, size:18, italic:true};
+    diaCell.border = thinBorder;
+    diaCell.alignment = centerAlign;
+
+    const horaCell = ws.getCell(rowNum, 2);
+    const m = (r.hora||'').match(/(\d{1,2}):(\d{2})/);
+    if(m){
+      horaCell.value = (parseInt(m[1])*60 + parseInt(m[2])) / 1440;
+      horaCell.numFmt = 'hh:mm';
+    }
+    horaCell.font = {name:fontName, size:18, italic:false};
+    horaCell.border = thinBorder;
+    horaCell.alignment = centerAlign;
+
+    const lugarCell = ws.getCell(rowNum, 3);
+    lugarCell.value = r.lugar;
+    lugarCell.font = {name:fontName, size:18, italic:true};
+    lugarCell.border = thinBorder;
+    lugarCell.alignment = centerAlign;
+
+    const terrCell = ws.getCell(rowNum, 4);
+    if(r.territorio) terrCell.value = parseInt(r.territorio) || r.territorio;
+    terrCell.font = {name:fontName, size:18, italic:false};
+    terrCell.border = thinBorder;
+    terrCell.alignment = centerAlign;
+
+    const condCell = ws.getCell(rowNum, 5);
+    condCell.value = r.conductor;
+    condCell.font = {name:fontName, size:18, italic:true};
+    condCell.border = thinBorder;
+    condCell.alignment = centerAlign;
+
+    ws.getRow(rowNum).height = 44.75;
+  });
+
+  return wb;
+}
+
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  try{
+    const wb = await buildWorkbook();
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Salidas_G7.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Excel descargado ✓');
+  }catch(err){
+    console.error(err);
+    showToast('Hubo un error generando el archivo');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Descargar Salidas_G7.xlsx';
+});
+
+// Registro del service worker (habilita instalación como app y uso offline)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('No se pudo registrar el service worker:', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
