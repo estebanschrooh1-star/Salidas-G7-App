@@ -513,8 +513,8 @@ async function buildWorkbook(){
     fitToWidth: 1,
     fitToHeight: 1,
     margins: {
-      left: 0.3, right: 0.3, top: 0.4, bottom: 0.4,
-      header: 0.2, footer: 0.2
+      left: 0.3, right: 0.3, top: 0.15, bottom: 0.4,
+      header: 0.1, footer: 0.2
     }
   };
 
@@ -664,7 +664,7 @@ function buildPreviewElement(){
   ['Día','Hora','Lugar de encuentro','Territorio','Conductor'].forEach(h=>{
     const th = document.createElement('th');
     th.textContent = h;
-    th.style.cssText = 'background:#00FE7F;border:1px solid #333;padding:12px 4px;font-size:17px;font-weight:700;color:#1E2A22;text-align:center;white-space:normal;line-height:1.15;';
+    th.style.cssText = 'background:#00FE7F;border:1px solid #333;padding:14px 6px;font-size:21px;font-weight:700;color:#1E2A22;text-align:center;white-space:normal;line-height:1.2;font-family:"Bahnschrift SemiLight","Bahnschrift","Segoe UI",Arial,sans-serif;text-transform:none;letter-spacing:normal;';
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -679,7 +679,7 @@ function buildPreviewElement(){
       td.textContent = val || '';
       const weight = r.manual ? 700 : 400;
       const italic = (i === 0 || i === 2 || i === 4) ? 'italic' : 'normal'; // Día, Lugar, Conductor van en cursiva, igual que en el Excel
-      td.style.cssText = `border:1px solid #999;padding:10px 6px;font-size:18px;text-align:center;color:#1E2A22;font-weight:${weight};font-style:${italic};`;
+      td.style.cssText = `border:1px solid #999;padding:12px 8px;font-size:22px;text-align:center;color:#1E2A22;font-weight:${weight};font-style:${italic};font-family:"Bahnschrift Light SemiCondensed","Bahnschrift","Segoe UI",Arial,sans-serif;text-transform:none;letter-spacing:normal;`;
       if(i === 2){ td.style.whiteSpace = 'normal'; td.style.wordBreak = 'break-word'; }
       else{ td.style.whiteSpace = 'nowrap'; }
       tr.appendChild(td);
