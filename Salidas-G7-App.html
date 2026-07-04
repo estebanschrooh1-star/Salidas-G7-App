@@ -17,6 +17,8 @@
 <meta name="theme-color" content="#1E2A22">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --paper:#F2F4F1;
@@ -147,6 +149,19 @@
   footer{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:36px;line-height:1.6;}
   footer a{color:var(--accent);}
 
+  .dropdown{position:relative;display:inline-block;}
+  .dropdown-menu{
+    display:none;position:absolute;top:calc(100% + 6px);left:0;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 8px 20px rgba(0,0,0,.14);overflow:hidden;min-width:190px;z-index:20;
+  }
+  .dropdown-menu.open{display:block;}
+  .dropdown-menu button{
+    display:block;width:100%;text-align:left;background:none;border:none;
+    padding:11px 14px;font-size:13.5px;color:var(--ink);border-radius:0;font-weight:500;
+  }
+  .dropdown-menu button:hover{background:var(--accent-soft);color:var(--accent);opacity:1;}
+
   #toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
     background:var(--ink);color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;
@@ -194,7 +209,14 @@
   <div class="card">
     <h2><span class="step-num">3</span> Descargá el Excel</h2>
     <div class="row">
-      <button class="btn-accent" id="downloadBtn" disabled>Descargar Salidas_G7.xlsx</button>
+      <div class="dropdown">
+        <button class="btn-accent" id="downloadBtn" disabled>Descargar como... ▾</button>
+        <div class="dropdown-menu" id="downloadMenu">
+          <button data-format="xlsx">Excel (.xlsx)</button>
+          <button data-format="jpg">Imagen (.jpg)</button>
+          <button data-format="pdf">PDF (.pdf)</button>
+        </div>
+      </div>
     </div>
     <p class="hint">El archivo se genera con el mismo título, colores, fuente y anchos de columna que tu planilla actual.</p>
   </div>
@@ -481,7 +503,7 @@ async function buildWorkbook(){
   const ws = wb.addWorksheet('Hoja1');
 
   ws.columns = [
-    {width:20.39}, {width:12.76}, {width:50.96}, {width:10.5}, {width:29.84}
+    {width:20.39}, {width:12.76}, {width:50.96}, {width:16.02}, {width:29.84}
   ];
 
   // Configuración de impresión: vertical, ajustada a una página de ancho y alto
@@ -553,7 +575,7 @@ async function buildWorkbook(){
     lugarCell.value = r.lugar;
     lugarCell.font = {name:fontName, size:18, italic:true};
     lugarCell.border = thinBorder;
-    lugarCell.alignment = centerAlign;
+    lugarCell.alignment = {...centerAlign, wrapText:true};
 
     const terrCell = ws.getCell(rowNum, 4);
     if(r.territorio) terrCell.value = parseInt(r.territorio) || r.territorio;
@@ -573,29 +595,175 @@ async function buildWorkbook(){
   return wb;
 }
 
-document.getElementById('downloadBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('downloadBtn');
-  btn.disabled = true;
-  btn.textContent = 'Generando...';
-  try{
-    const wb = await buildWorkbook();
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Salidas_G7.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Excel descargado ✓');
-  }catch(err){
-    console.error(err);
-    showToast('Hubo un error generando el archivo');
+// Guarda un blob dejando elegir la ubicación cuando el navegador lo permite
+// (Chrome/Edge escritorio). Si no está disponible (Safari/iOS), cae a la
+// descarga normal del navegador, que en iPhone guarda en Archivos/Descargas.
+async function saveBlob(blob, suggestedName, description, mimeType, extensions){
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description, accept: { [mimeType]: extensions } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      showToast('Archivo guardado ✓');
+      return;
+    }catch(err){
+      if(err.name === 'AbortError') return; // el usuario canceló el diálogo
+      console.warn('Selector nativo no disponible, uso descarga normal:', err);
+    }
   }
-  btn.disabled = false;
-  btn.textContent = 'Descargar Salidas_G7.xlsx';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = suggestedName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Archivo descargado ✓');
+}
+
+// Arma una tabla HTML oculta que imita el Excel, para exportar a jpg/pdf
+function buildPreviewElement(){
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.top = '-9999px';
+  container.style.left = '-9999px';
+  container.style.background = '#ffffff';
+  container.style.padding = '20px';
+  container.style.width = '900px';
+  container.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+
+  const title = document.createElement('div');
+  title.textContent = 'Salidas de Congregación y del Grupo 7';
+  title.style.cssText = 'font-size:26px;font-weight:700;text-align:center;margin-bottom:6px;color:#1E2A22;';
+  container.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.textContent = document.getElementById('subtitleInput').value || '';
+  subtitle.style.cssText = 'font-size:19px;font-weight:600;text-align:center;margin-bottom:16px;color:#333;';
+  container.appendChild(subtitle);
+
+  const table = document.createElement('table');
+  table.style.cssText = 'width:100%;border-collapse:collapse;table-layout:fixed;';
+
+  const colgroup = document.createElement('colgroup');
+  ['20%','12%','33%','11%','24%'].forEach(w=>{
+    const col = document.createElement('col');
+    col.style.width = w;
+    colgroup.appendChild(col);
+  });
+  table.appendChild(colgroup);
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Día','Hora','Lugar de encuentro','Territorio','Conductor'].forEach(h=>{
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.style.cssText = 'background:#00FE7F;border:1px solid #333;padding:10px 6px;font-size:15px;font-weight:700;color:#1E2A22;';
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  currentRows.forEach(r=>{
+    const tr = document.createElement('tr');
+    if(r.manual) tr.style.background = '#FFF4DC';
+    [r.dia, r.hora, r.lugar, r.territorio, r.conductor].forEach((val, i)=>{
+      const td = document.createElement('td');
+      td.textContent = val || '';
+      td.style.cssText = 'border:1px solid #999;padding:8px 6px;font-size:14px;text-align:center;color:#1E2A22;';
+      if(i === 2){ td.style.whiteSpace = 'normal'; td.style.wordBreak = 'break-word'; }
+      else{ td.style.whiteSpace = 'nowrap'; }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  document.body.appendChild(container);
+  return container;
+}
+
+async function exportAsXlsx(){
+  const wb = await buildWorkbook();
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  await saveBlob(blob, 'Salidas_G7.xlsx', 'Libro de Excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ['.xlsx']);
+}
+
+async function exportAsImage(){
+  const el = buildPreviewElement();
+  try{
+    const canvas = await html2canvas(el, {scale:2, backgroundColor:'#ffffff'});
+    document.body.removeChild(el);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    await saveBlob(blob, 'Salidas_G7.jpg', 'Imagen JPEG', 'image/jpeg', ['.jpg', '.jpeg']);
+  }catch(err){
+    if(document.body.contains(el)) document.body.removeChild(el);
+    throw err;
+  }
+}
+
+async function exportAsPDF(){
+  const el = buildPreviewElement();
+  try{
+    const canvas = await html2canvas(el, {scale:2, backgroundColor:'#ffffff'});
+    document.body.removeChild(el);
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const ratio = canvas.height / canvas.width;
+    let imgWidth = pageWidth - 20;
+    let imgHeight = imgWidth * ratio;
+    if(imgHeight > pageHeight - 20){
+      imgHeight = pageHeight - 20;
+      imgWidth = imgHeight / ratio;
+    }
+    const x = (pageWidth - imgWidth) / 2;
+    pdf.addImage(imgData, 'JPEG', x, 10, imgWidth, imgHeight);
+    const blob = pdf.output('blob');
+    await saveBlob(blob, 'Salidas_G7.pdf', 'Documento PDF', 'application/pdf', ['.pdf']);
+  }catch(err){
+    if(document.body.contains(el)) document.body.removeChild(el);
+    throw err;
+  }
+}
+
+const downloadBtn = document.getElementById('downloadBtn');
+const downloadMenu = document.getElementById('downloadMenu');
+
+downloadBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(downloadBtn.disabled) return;
+  downloadMenu.classList.toggle('open');
+});
+document.addEventListener('click', () => downloadMenu.classList.remove('open'));
+
+downloadMenu.querySelectorAll('button').forEach(item => {
+  item.addEventListener('click', async (e) => {
+    downloadMenu.classList.remove('open');
+    const format = e.currentTarget.dataset.format;
+    const originalText = downloadBtn.textContent;
+    downloadBtn.disabled = true;
+    try{
+      if(format === 'xlsx'){ downloadBtn.textContent = 'Generando Excel...'; await exportAsXlsx(); }
+      else if(format === 'jpg'){ downloadBtn.textContent = 'Generando imagen...'; await exportAsImage(); }
+      else if(format === 'pdf'){ downloadBtn.textContent = 'Generando PDF...'; await exportAsPDF(); }
+    }catch(err){
+      console.error(err);
+      showToast('Hubo un error generando el archivo');
+    }
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = originalText;
+  });
 });
 
 // Registro del service worker (habilita instalación como app y uso offline)
