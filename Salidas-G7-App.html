@@ -635,23 +635,24 @@ function buildPreviewElement(){
   container.style.background = '#ffffff';
   container.style.padding = '20px';
   container.style.width = '900px';
-  container.style.fontFamily = "'Segoe UI', Arial, sans-serif";
+  container.style.fontFamily = "'Bahnschrift', 'Segoe UI', Arial, sans-serif";
 
   const title = document.createElement('div');
   title.textContent = 'Salidas de Congregación y del Grupo 7';
-  title.style.cssText = 'font-size:26px;font-weight:700;text-align:center;margin-bottom:6px;color:#1E2A22;';
+  title.style.cssText = 'font-size:36px;font-weight:800;text-align:center;margin-bottom:8px;color:#1E2A22;';
   container.appendChild(title);
 
   const subtitle = document.createElement('div');
   subtitle.textContent = document.getElementById('subtitleInput').value || '';
-  subtitle.style.cssText = 'font-size:19px;font-weight:600;text-align:center;margin-bottom:16px;color:#333;';
+  subtitle.style.cssText = 'font-size:24px;font-weight:600;text-align:center;margin-bottom:20px;color:#333;';
   container.appendChild(subtitle);
 
   const table = document.createElement('table');
   table.style.cssText = 'width:100%;border-collapse:collapse;table-layout:fixed;';
 
+  // Mismas proporciones que los anchos de columna reales del Excel (20.39, 12.76, 50.96, 16.02, 29.84)
   const colgroup = document.createElement('colgroup');
-  ['20%','12%','33%','11%','24%'].forEach(w=>{
+  ['15.7%','9.8%','39.2%','12.3%','23%'].forEach(w=>{
     const col = document.createElement('col');
     col.style.width = w;
     colgroup.appendChild(col);
@@ -663,7 +664,7 @@ function buildPreviewElement(){
   ['Día','Hora','Lugar de encuentro','Territorio','Conductor'].forEach(h=>{
     const th = document.createElement('th');
     th.textContent = h;
-    th.style.cssText = 'background:#00FE7F;border:1px solid #333;padding:10px 6px;font-size:15px;font-weight:700;color:#1E2A22;';
+    th.style.cssText = 'background:#00FE7F;border:1px solid #333;padding:12px 4px;font-size:17px;font-weight:700;color:#1E2A22;text-align:center;white-space:normal;line-height:1.15;';
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -676,7 +677,9 @@ function buildPreviewElement(){
     [r.dia, r.hora, r.lugar, r.territorio, r.conductor].forEach((val, i)=>{
       const td = document.createElement('td');
       td.textContent = val || '';
-      td.style.cssText = 'border:1px solid #999;padding:8px 6px;font-size:14px;text-align:center;color:#1E2A22;';
+      const weight = r.manual ? 700 : 400;
+      const italic = (i === 0 || i === 2 || i === 4) ? 'italic' : 'normal'; // Día, Lugar, Conductor van en cursiva, igual que en el Excel
+      td.style.cssText = `border:1px solid #999;padding:10px 6px;font-size:18px;text-align:center;color:#1E2A22;font-weight:${weight};font-style:${italic};`;
       if(i === 2){ td.style.whiteSpace = 'normal'; td.style.wordBreak = 'break-word'; }
       else{ td.style.whiteSpace = 'nowrap'; }
       tr.appendChild(td);
@@ -715,20 +718,36 @@ async function exportAsPDF(){
   try{
     const canvas = await html2canvas(el, {scale:2, backgroundColor:'#ffffff'});
     document.body.removeChild(el);
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const ratio = canvas.height / canvas.width;
-    let imgWidth = pageWidth - 20;
-    let imgHeight = imgWidth * ratio;
-    if(imgHeight > pageHeight - 20){
-      imgHeight = pageHeight - 20;
-      imgWidth = imgHeight / ratio;
+    const margin = 10;
+    const usableWidth = pageWidth - margin * 2;
+    const usableHeight = pageHeight - margin * 2;
+
+    // Pixeles de canvas equivalentes a 1mm de salida, manteniendo el ancho fijo
+    const pxPerMm = canvas.width / usableWidth;
+    const pageHeightPx = Math.floor(usableHeight * pxPerMm);
+
+    let renderedPx = 0;
+    let pageIndex = 0;
+    while(renderedPx < canvas.height){
+      const sliceHeightPx = Math.min(pageHeightPx, canvas.height - renderedPx);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = sliceHeightPx;
+      const ctx = pageCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(canvas, 0, renderedPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+      if(pageIndex > 0) pdf.addPage();
+      const sliceHeightMm = sliceHeightPx / pxPerMm;
+      pdf.addImage(imgData, 'JPEG', margin, margin, usableWidth, sliceHeightMm);
+      renderedPx += sliceHeightPx;
+      pageIndex++;
     }
-    const x = (pageWidth - imgWidth) / 2;
-    pdf.addImage(imgData, 'JPEG', x, 10, imgWidth, imgHeight);
     const blob = pdf.output('blob');
     await saveBlob(blob, 'Salidas_G7.pdf', 'Documento PDF', 'application/pdf', ['.pdf']);
   }catch(err){
