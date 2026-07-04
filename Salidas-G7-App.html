@@ -690,6 +690,16 @@ function buildPreviewElement(){
   container.appendChild(table);
 
   document.body.appendChild(container);
+
+  // Reserva el alto de una hoja A4 vertical (como al imprimir), dejando el
+  // espacio en blanco de sobra debajo de la tabla, igual que en el Excel original
+  const contentWidth = 900; // ancho fijo del contenedor
+  const a4Height = Math.round(contentWidth * (297 / 210));
+  const actualHeight = container.getBoundingClientRect().height;
+  if(actualHeight < a4Height){
+    container.style.height = a4Height + 'px';
+  }
+
   return container;
 }
 
